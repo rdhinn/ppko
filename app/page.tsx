@@ -17,7 +17,7 @@ export default function HomePage() {
           <img
             alt="Golden Sunrise Gunung Prau"
             className="w-full h-full object-cover"
-            src="https://images.unsplash.com/photo-1601579628990-ab4a9a0899a8?auto=format&fit=crop&w=1200&q=80"
+            src="https://images.unsplash.com/photo-1542332213-9e5a5a3fda35?auto=format&fit=crop&w=1200&q=80"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-on-background/90 via-on-background/30 to-transparent"></div>
         </div>

@@ -7,55 +7,186 @@ interface Checkpoint {
   elevation: number;
   distance: number; // km from basecamp
   temp: number; // typical temp
-  x: number; // SVG X coordinate
-  y: number; // SVG Y coordinate
+  lat: number;
+  lng: number;
 }
 
 export default function TrailMap() {
   const checkpoints: Checkpoint[] = [
-    { name: "Basecamp Patakbanteng", elevation: 1400, distance: 0.0, temp: 18, x: 50, y: 350 },
-    { name: "Pos 1: Sikut Dewo", elevation: 1650, distance: 1.1, temp: 16, x: 120, y: 300 },
-    { name: "Pos 2: Canggal Bulung", elevation: 1900, distance: 2.2, temp: 15, x: 220, y: 220 },
-    { name: "Pos 3: Cacingan", elevation: 2200, distance: 3.2, temp: 13, x: 340, y: 150 },
-    { name: "Puncak Prau (Camp)", elevation: 2565, distance: 4.2, temp: 11, x: 450, y: 50 },
+    { name: "Basecamp Patakbanteng", elevation: 1400, distance: 0.0, temp: 18, lat: -7.2100, lng: 109.9190 },
+    { name: "Pos 1: Sikut Dewo", elevation: 1650, distance: 1.1, temp: 16, lat: -7.2030, lng: 109.9200 },
+    { name: "Pos 2: Canggal Bulung", elevation: 1900, distance: 2.2, temp: 15, lat: -7.1970, lng: 109.9215 },
+    { name: "Pos 3: Cacingan", elevation: 2200, distance: 3.2, temp: 13, lat: -7.1910, lng: 109.9228 },
+    { name: "Puncak Prau (Camp)", elevation: 2565, distance: 4.2, temp: 11, lat: -7.1867, lng: 109.9231 },
+  ];
+
+  // Actual GPS path coordinates along the Patakbanteng route
+  const trailCoords: [number, number][] = [
+    [-7.2100, 109.9190], // Basecamp
+    [-7.2085, 109.9192],
+    [-7.2065, 109.9195],
+    [-7.2045, 109.9198],
+    [-7.2030, 109.9200], // Pos 1
+    [-7.2015, 109.9203],
+    [-7.1995, 109.9208],
+    [-7.1980, 109.9212],
+    [-7.1970, 109.9215], // Pos 2
+    [-7.1955, 109.9218],
+    [-7.1935, 109.9222],
+    [-7.1920, 109.9225],
+    [-7.1910, 109.9228], // Pos 3
+    [-7.1895, 109.9230],
+    [-7.1880, 109.9231],
+    [-7.1867, 109.9231], // Puncak
   ];
 
   // Simulation State
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0 to 100
-  const [speed, setSpeed] = useState(1); // multiplier
+  const [speed, setSpeed] = useState(5); // multiplier
   const [currentCheckpoint, setCurrentCheckpoint] = useState<Checkpoint>(checkpoints[0]);
   const [liveStats, setLiveStats] = useState({
     elevation: 1400,
     distance: 0.0,
     temp: 18,
-    timeRemaining: 210, // minutes (3.5 hours)
+    timeRemaining: 210, // minutes
   });
 
+  const [mapLoaded, setMapLoaded] = useState(false);
+
+  const mapRef = useRef<any>(null);
+  const hikerMarkerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Generate smooth trail path points for the SVG line
-  const pathData = checkpoints.map((cp, idx) => `${idx === 0 ? "M" : "L"} ${cp.x} ${cp.y}`).join(" ");
+  // Load Leaflet libraries dynamically via CDN to bypass Next.js SSR crashes
+  useEffect(() => {
+    if (typeof window === "undefined" || mapLoaded) return;
 
-  // Path interpolation to calculate exact coordinates for the moving dot
+    // Check if Leaflet is already on the page
+    if ((window as any).L) {
+      setMapLoaded(true);
+      return;
+    }
+
+    // Load Leaflet CSS
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+
+    // Load Leaflet JS
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.async = true;
+    script.onload = () => {
+      setMapLoaded(true);
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      // Clean up link and script tags if unmounted before loading
+      try {
+        document.head.removeChild(link);
+        document.body.removeChild(script);
+      } catch (e) {}
+    };
+  }, [mapLoaded]);
+
+  // Initialize Map once Leaflet is loaded
+  useEffect(() => {
+    if (!mapLoaded || typeof window === "undefined") return;
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    // Initialize map
+    const map = L.map("real-trail-map", {
+      zoomControl: false,
+    }).setView([-7.200, 109.921], 14);
+    mapRef.current = map;
+
+    L.control.zoom({ position: "topright" }).addTo(map);
+
+    // Add Esri World Imagery (Satellite Actual Terrain)
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "Tiles &copy; Esri &mdash; Satellite Imagery of Mount Prau Terrain",
+      maxZoom: 18,
+    }).addTo(map);
+
+    // Add boundaries & labels overlay
+    L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "",
+    }).addTo(map);
+
+    // Draw the trail route polyline
+    L.polyline(trailCoords, {
+      color: "#aff0ad",
+      weight: 6,
+      opacity: 0.8,
+    }).addTo(map);
+
+    L.polyline(trailCoords, {
+      color: "#2d5a27",
+      weight: 3,
+      dashArray: "5, 8",
+      opacity: 1,
+    }).addTo(map);
+
+    // Add checkpoint markers
+    checkpoints.forEach((cp, idx) => {
+      const markerColor = idx === 0 || idx === checkpoints.length - 1 ? "#2d5a27" : "#4d6357";
+      const marker = L.circleMarker([cp.lat, cp.lng], {
+        radius: idx === 0 || idx === checkpoints.length - 1 ? 8 : 6,
+        fillColor: "#ffffff",
+        color: markerColor,
+        weight: 3,
+        fillOpacity: 1,
+      }).addTo(map);
+
+      marker.bindTooltip(`<strong>${cp.name}</strong><br/>Elevasi: ${cp.elevation} mdpl`, {
+        direction: "right",
+        permanent: idx === 0 || idx === checkpoints.length - 1,
+        opacity: 0.9,
+      });
+    });
+
+    // Add Hiker GPS locator dot
+    const hikerMarker = L.circleMarker(trailCoords[0], {
+      radius: 9,
+      fillColor: "#ba1a1a",
+      color: "#ffffff",
+      weight: 2,
+      fillOpacity: 1,
+    }).addTo(map);
+    hikerMarkerRef.current = hikerMarker;
+
+    hikerMarker.bindPopup("<b>Rombongan Hiker Anda</b><br/>GPS Live Tracking Aktif.").openPopup();
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [mapLoaded]);
+
+  // Handle GPS location update during simulation
   const getCoordinatesAtProgress = (pct: number) => {
-    if (pct <= 0) return { x: checkpoints[0].x, y: checkpoints[0].y };
-    if (pct >= 100) return { x: checkpoints[checkpoints.length - 1].x, y: checkpoints[checkpoints.length - 1].y };
+    if (pct <= 0) return trailCoords[0];
+    if (pct >= 100) return trailCoords[trailCoords.length - 1];
 
-    const totalSegments = checkpoints.length - 1;
-    const segmentIndex = Math.min(Math.floor((pct / 100) * totalSegments), totalSegments - 1);
-    const segmentPct = (pct / 100) * totalSegments - segmentIndex;
+    const totalSegments = trailCoords.length - 1;
+    const segmentIndex = Math.min(Math.floor(pct * totalSegments), totalSegments - 1);
+    const segmentPct = pct * totalSegments - segmentIndex;
 
-    const start = checkpoints[segmentIndex];
-    const end = checkpoints[segmentIndex + 1];
+    const start = trailCoords[segmentIndex];
+    const end = trailCoords[segmentIndex + 1];
 
-    const x = start.x + (end.x - start.x) * segmentPct;
-    const y = start.y + (end.y - start.y) * segmentPct;
+    const lat = start[0] + (end[0] - start[0]) * segmentPct;
+    const lng = start[1] + (end[1] - start[1]) * segmentPct;
 
-    return { x, y };
+    return [lat, lng] as [number, number];
   };
-
-  const currentCoords = getCoordinatesAtProgress(progress);
 
   // Start / Pause Simulation
   useEffect(() => {
@@ -66,7 +197,7 @@ export default function TrailMap() {
             setIsPlaying(false);
             return 100;
           }
-          return prev + 0.5 * speed;
+          return prev + 0.3 * speed;
         });
       }, 100);
     } else if (intervalRef.current) {
@@ -78,25 +209,34 @@ export default function TrailMap() {
     };
   }, [isPlaying, speed]);
 
-  // Dynamically update stats as hiker progress increases
+  // Dynamically update GPS marker on the actual map
   useEffect(() => {
-    const totalSegments = checkpoints.length - 1;
     const pct = progress / 100;
+    const coords = getCoordinatesAtProgress(pct);
 
-    // Find current active segment
+    // 1. Move hiker marker
+    if (hikerMarkerRef.current) {
+      hikerMarkerRef.current.setLatLng(coords);
+    }
+
+    // 2. Pan map to keep hiker centered
+    if (mapRef.current && isPlaying) {
+      mapRef.current.panTo(coords);
+    }
+
+    // 3. Update stats
+    const totalSegments = checkpoints.length - 1;
     const segmentIndex = Math.min(Math.floor(pct * totalSegments), totalSegments - 1);
     const segmentPct = pct * totalSegments - segmentIndex;
 
     const start = checkpoints[segmentIndex];
     const end = checkpoints[segmentIndex + 1];
 
-    // Interpolate values
     const elevation = Math.round(start.elevation + (end.elevation - start.elevation) * segmentPct);
     const distance = parseFloat((start.distance + (end.distance - start.distance) * segmentPct).toFixed(2));
     const temp = Math.round(start.temp + (end.temp - start.temp) * segmentPct);
     
-    // 3.5 hours (210 mins) down to 0 mins
-    const totalDuration = 210;
+    const totalDuration = 210; // 3.5 hours
     const timeRemaining = Math.max(Math.round(totalDuration * (1 - pct)), 0);
 
     setLiveStats({ elevation, distance, temp, timeRemaining });
@@ -106,6 +246,9 @@ export default function TrailMap() {
   const handleReset = () => {
     setIsPlaying(false);
     setProgress(0);
+    if (mapRef.current) {
+      mapRef.current.setView(trailCoords[0], 14);
+    }
   };
 
   return (
@@ -114,10 +257,10 @@ export default function TrailMap() {
         <div>
           <span className="text-primary font-bold text-xs uppercase tracking-widest flex items-center gap-1">
             <span className="material-symbols-outlined text-xs animate-pulse text-error">satellite_alt</span>
-            Live Tracking &amp; Peta Topografi
+            Live GPS Tracking &amp; Peta Medan Asli
           </span>
           <h3 className="font-headline font-black text-2xl text-on-surface mt-1">
-            Visualisasi Jalur Patakbanteng
+            Jalur Patakbanteng (Satelit Esri)
           </h3>
         </div>
         
@@ -147,99 +290,32 @@ export default function TrailMap() {
             onChange={(e) => setSpeed(Number(e.target.value))}
             className="bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none"
           >
-            <option value={1}>Speed: 1x</option>
-            <option value={5}>Speed: 5x</option>
-            <option value={10}>Speed: 10x</option>
+            <option value={2}>Speed: 1x</option>
+            <option value={10}>Speed: 5x</option>
+            <option value={20}>Speed: 10x</option>
           </select>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Topographic SVG Map */}
-        <div className="lg:col-span-8 bg-surface-container-lowest border border-outline-variant/20 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden min-h-[380px] shadow-inner">
+        {/* Left Column: Leaflet Map Container */}
+        <div className="lg:col-span-8 bg-surface-container-lowest border border-outline-variant/20 rounded-2xl overflow-hidden relative min-h-[400px] shadow-inner flex flex-col justify-center items-center">
+          {!mapLoaded ? (
+            <div className="text-center p-8 space-y-4">
+              <span className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin block mx-auto"></span>
+              <p className="text-xs text-on-surface-variant font-medium">Memuat Citra Satelit &amp; Peta Medan...</p>
+            </div>
+          ) : (
+            <div id="real-trail-map" className="w-full h-[400px] z-10" />
+          )}
+
           {/* Signal Indicator Overlay */}
-          <div className="absolute top-4 left-4 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full border border-outline-variant/30 flex items-center gap-1.5 shadow-sm text-[10px] font-bold">
-            <span className={`w-2 h-2 rounded-full ${isPlaying ? "bg-emerald-500 animate-ping" : "bg-primary"}`}></span>
-            <span className="text-secondary font-mono">GPS: {isPlaying ? "TRANSMITTING" : "STANDBY"}</span>
-          </div>
-
-          <svg viewBox="0 0 500 400" className="w-full h-full max-w-[500px]">
-            {/* Background Topographic Contour Lines */}
-            <path d="M -50 380 Q 250 350 550 380" fill="none" stroke="rgba(45, 90, 39, 0.08)" strokeWidth="8" />
-            <path d="M -50 330 Q 250 300 550 330" fill="none" stroke="rgba(45, 90, 39, 0.08)" strokeWidth="6" />
-            <path d="M -50 280 Q 250 240 550 280" fill="none" stroke="rgba(45, 90, 39, 0.08)" strokeWidth="5" />
-            <path d="M -50 220 Q 250 180 550 220" fill="none" stroke="rgba(45, 90, 39, 0.08)" strokeWidth="4" />
-            <path d="M -50 150 Q 250 100 550 150" fill="none" stroke="rgba(45, 90, 39, 0.08)" strokeWidth="3" />
-            <path d="M -50 80 Q 250 40 550 80" fill="none" stroke="rgba(45, 90, 39, 0.08)" strokeWidth="2.5" />
-            <path d="M -50 20 Q 250 -10 550 20" fill="none" stroke="rgba(45, 90, 39, 0.08)" strokeWidth="1.5" />
-
-            {/* Trail Route Path (Underlay) */}
-            <path
-              d={pathData}
-              fill="none"
-              stroke="#aff0ad"
-              strokeWidth="6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            
-            {/* Active Trail Route Path (Dashed Overlay) */}
-            <path
-              d={pathData}
-              fill="none"
-              stroke="#2d5a27"
-              strokeWidth="3"
-              strokeDasharray="6,4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-
-            {/* Checkpoints Circles */}
-            {checkpoints.map((cp, index) => {
-              const isActive = liveStats.elevation >= cp.elevation;
-              return (
-                <g key={cp.name} className="cursor-pointer">
-                  <circle
-                    cx={cp.x}
-                    cy={cp.y}
-                    r={index === 0 || index === checkpoints.length - 1 ? 7 : 5}
-                    className={`transition-all duration-300 ${
-                      isActive ? "fill-primary stroke-primary-fixed" : "fill-white stroke-outline-variant"
-                    }`}
-                    strokeWidth="3"
-                  />
-                  
-                  {/* Label Text */}
-                  <text
-                    x={cp.x}
-                    y={cp.y - 12}
-                    className="font-headline font-bold fill-on-surface/90 text-[9px]"
-                    textAnchor="middle"
-                  >
-                    {cp.name.split(":")[0]}
-                  </text>
-                  <text
-                    x={cp.x}
-                    y={cp.y + 16}
-                    className="font-mono fill-secondary/70 text-[8px]"
-                    textAnchor="middle"
-                  >
-                    {cp.elevation}m
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Moving Hiker GPS Indicator (Dot) */}
-            <g transform={`translate(${currentCoords.x}, ${currentCoords.y})`}>
-              <circle cx="0" cy="0" r="10" className="fill-error/20 stroke-error/40" strokeWidth="1" />
-              <circle cx="0" cy="0" r="6" className="fill-error animate-pulse" />
-              {/* Pulsing signal ring */}
-              {isPlaying && (
-                <circle cx="0" cy="0" r="14" className="fill-none stroke-error/30 animate-ping" strokeWidth="1.5" />
-              )}
-            </g>
-          </svg>
+          {mapLoaded && (
+            <div className="absolute top-4 left-4 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full border border-outline-variant/30 flex items-center gap-1.5 shadow-sm text-[10px] font-bold z-20">
+              <span className={`w-2 h-2 rounded-full ${isPlaying ? "bg-emerald-500 animate-ping" : "bg-primary"}`}></span>
+              <span className="text-secondary font-mono">LIVE: {isPlaying ? "TRANSMITTING" : "STANDBY"}</span>
+            </div>
+          )}
         </div>
 
         {/* Right Column: Simulated Live Stats */}
@@ -253,7 +329,7 @@ export default function TrailMap() {
             <div className="space-y-3">
               <div>
                 <span className="block text-[9px] uppercase tracking-wider text-on-surface-variant font-bold">Lokasi Saat Ini</span>
-                <span className="text-base font-headline font-black text-primary truncate block">
+                <span className="text-sm font-headline font-black text-primary truncate block">
                   {progress === 100 ? "Tiba di Puncak Prau!" : currentCheckpoint.name}
                 </span>
               </div>
@@ -261,22 +337,22 @@ export default function TrailMap() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="block text-[9px] uppercase tracking-wider text-on-surface-variant font-bold">Ketinggian</span>
-                  <span className="text-lg font-black font-headline text-on-surface font-mono">{liveStats.elevation} <span className="text-xs font-normal">mdpl</span></span>
+                  <span className="text-base font-black font-headline text-on-surface font-mono">{liveStats.elevation} <span className="text-[10px] font-normal">mdpl</span></span>
                 </div>
                 <div>
                   <span className="block text-[9px] uppercase tracking-wider text-on-surface-variant font-bold">Suhu Ketinggian</span>
-                  <span className="text-lg font-black font-headline text-on-surface font-mono">{liveStats.temp}°C</span>
+                  <span className="text-base font-black font-headline text-on-surface font-mono">{liveStats.temp}°C</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="block text-[9px] uppercase tracking-wider text-on-surface-variant font-bold">Jarak Tempuh</span>
-                  <span className="text-lg font-black font-headline text-on-surface font-mono">{liveStats.distance} <span className="text-xs font-normal">km</span></span>
+                  <span className="text-base font-black font-headline text-on-surface font-mono">{liveStats.distance} <span className="text-[10px] font-normal">km</span></span>
                 </div>
                 <div>
                   <span className="block text-[9px] uppercase tracking-wider text-on-surface-variant font-bold">Estimasi Sisa</span>
-                  <span className="text-lg font-black font-headline text-on-surface font-mono">
+                  <span className="text-base font-black font-headline text-on-surface font-mono">
                     {Math.floor(liveStats.timeRemaining / 60)}j {liveStats.timeRemaining % 60}m
                   </span>
                 </div>
