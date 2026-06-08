@@ -17,7 +17,7 @@ export default function HomePage() {
           <img
             alt="Golden Sunrise Gunung Prau"
             className="w-full h-full object-cover"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOLQRt5NXlga6rHo7BAWqGCiUP8Zfv_97MrzSp7ofD1T1M4e2muCwvJGvVuJjvCIBfhuUirC2BlBWFWZ3sHxckS5m1kLX7EAnFaGjjB7I8fb5zqmxnB8YPB3szuPVKfrqrPP4pxzWO2dYo-6mtpEOubZpvdkPIGRlrEsnVDdYVZ90g8v7btflPIo62ZndX43LKN0KJ8jYE7y_bPvYPID3E464NcwPvXjh7Xoel9JPGKtGjeTO0pDNTDT8QCSVILUB_c_arzlzsd4U"
+            src="https://images.unsplash.com/photo-1601579628990-ab4a9a0899a8?auto=format&fit=crop&w=1200&q=80"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-on-background/90 via-on-background/30 to-transparent"></div>
         </div>
@@ -106,7 +106,7 @@ export default function HomePage() {
               <img
                 alt="Padang Rumput Gunung Prau"
                 className="w-full h-full object-cover"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOLQRt5NXlga6rHo7BAWqGCiUP8Zfv_97MrzSp7ofD1T1M4e2muCwvJGvVuJjvCIBfhuUirC2BlBWFWZ3sHxckS5m1kLX7EAnFaGjjB7I8fb5zqmxnB8YPB3szuPVKfrqrPP4pxzWO2dYo-6mtpEOubZpvdkPIGRlrEsnVDdYVZ90g8v7btflPIo62ZndX43LKN0KJ8jYE7y_bPvYPID3E464NcwPvXjh7Xoel9JPGKtGjeTO0pDNTDT8QCSVILUB_c_arzlzsd4U"
+                src="https://images.unsplash.com/photo-1596701062351-df5f8a42f3c5?auto=format&fit=crop&w=1200&q=80"
               />
               <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1">
                 <span

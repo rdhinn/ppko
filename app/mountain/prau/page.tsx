@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import CalendarWidget from "./CalendarWidget";
+import TrailMap from "@/app/components/TrailMap";
 
 export const metadata: Metadata = {
   title: "Gunung Prau - SummitPass | Pengalaman Golden Sunrise",
@@ -16,7 +17,7 @@ export default function MountPrauPage() {
         <img
           alt="Gunung Prau"
           className="absolute inset-0 w-full h-full object-cover"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOLQRt5NXlga6rHo7BAWqGCiUP8Zfv_97MrzSp7ofD1T1M4e2muCwvJGvVuJjvCIBfhuUirC2BlBWFWZ3sHxckS5m1kLX7EAnFaGjjB7I8fb5zqmxnB8YPB3szuPVKfrqrPP4pxzWO2dYo-6mtpEOubZpvdkPIGRlrEsnVDdYVZ90g8v7btflPIo62ZndX43LKN0KJ8jYE7y_bPvYPID3E464NcwPvXjh7Xoel9JPGKtGjeTO0pDNTDT8QCSVILUB_c_arzlzsd4U"
+          src="https://images.unsplash.com/photo-1596701062351-df5f8a42f3c5?auto=format&fit=crop&w=1200&q=80"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-surface via-black/20 to-black/40"></div>
 
@@ -164,6 +165,9 @@ export default function MountPrauPage() {
             ))}
           </div>
         </section>
+
+        {/* Trail Map & Live Tracking */}
+        <TrailMap />
 
         {/* Date Selection Widget */}
         <CalendarWidget />
